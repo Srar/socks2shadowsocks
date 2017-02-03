@@ -1,0 +1,11 @@
+{
+  "name": "socks5-to-shadowsocks-ts",
+  "scripts": {
+    "build": "./node_modules/.bin/tsc tcp-proxy.ts"
+  },
+  "dependencies": {
+    "@types/node": "^7.0.1",
+    "ts-node": "^2.0.0",
+    "typescript": "^2.1.5"
+  }
+}
