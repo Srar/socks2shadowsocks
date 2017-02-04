@@ -4,25 +4,6 @@ import * as crypto from "crypto";
 import SSCrypto from "./Crypto/SSCrypto";
 import { ISSCryptoMethod } from "./Crypto/ISSCryptoMethod";
 
-var traffic = 0;
-var trafficCount = 0;
-var connectionCount = 0;
-
-
-
-
-// setInterval(function () {
-//     trafficCount += traffic;
-//     var displ: string = "kb/s";
-//     var speed: number = (traffic / 1024);
-//     if (speed >= 1024) {
-//         speed = speed / 1024;
-//         speed = speed;
-//         displ = "mb/s";
-//     }
-//     console.log(speed.toFixed(2), displ, (trafficCount / 1024 / 1024 / 1024).toFixed(3), "gb", connectionCount.toString());
-//     traffic = 0;
-// }, 1000);
 
 class Socks5ToShadowsocksProxyServer {
 
@@ -32,6 +13,9 @@ class Socks5ToShadowsocksProxyServer {
     readonly localPort: number;
     readonly targetHost: string;
     readonly targetPort: number;
+    
+    upload: number = 0;
+    download: number = 0;
 
     constructor(localPort: number, targetHost: string, targetPort: number) {
         this.localPort = localPort;
@@ -44,50 +28,70 @@ class Socks5ToShadowsocksProxyServer {
         server.listen(this.localPort, () => {
             this.isListen = true;
         });
+
+        setInterval(function () {
+            var uploadSpeed: number = this.upload / 1024;
+            var downloadSpeed: number = this.download / 1024;
+            this.upload   = 0;
+            this.download = 0;
+            console.log(`uploadSpeed: ${uploadSpeed.toFixed(0)}kb/s   downloadSpeed:${downloadSpeed.toFixed(0)}kb/s`);
+        }.bind(this), 1000);
     }
 
     private onClientConnect(client: net.Socket) {
-        connectionCount++;
-        new ProxyProcess({
+
+        var process = new ProxyProcess({
             targetHost: this.targetHost,
             targetPort: this.targetPort,
             clientSocket: client,
-            onDone: () => {
-                connectionCount--;
+            encryptProcess: SSCrypto.createCryptoMethodObject("rc4-md5", "9VNNPzCkV4LcuGd"),
+
+            onConnect: (targetAddress: string) => {
+                //console.log("傻逼连接到:", targetAddress, "连接数:", ++this.count);
             },
-            reportTraffic: (byte) => {
-                traffic += byte;
-            }
+
+            onClose: () => {
+                //console.log("傻逼断开了", "连接数:", --this.count);
+            },
+
+            onError: (err: Error) => {
+                //console.log("傻逼爆炸了:", err.message);
+            },
+
+            onUploadTraffic: (traffic: number) => {
+                this.upload += traffic;
+            },
+
+            onDownloadTraffic: (traffic: number) => {
+                this.download += traffic;
+            },
         });
+
     }
 
 }
 
 class ProxyProcess {
 
+    readonly initTime: number = new Date().getTime();
+
     readonly clientSocket: net.Socket;
     readonly targetSocket: net.Socket;
-    readonly processConfig: ProxyProcessConfig;
-
     readonly clientIP: string;
     readonly clientPort: number;
 
-    clientTraffic: number = 0;
     dataBuffer: Buffer = new Buffer([]);
     isConnectTarget: boolean = false;
     isClear: boolean = false;
-
-    encryptProcess: ISSCryptoMethod = SSCrypto.createCryptoMethodObject("aes-256-cfb", "9VNNPzCkV4LcuGd");
+    isFirstTraffic: boolean = true;
+    targetAddress: string = "";
 
     socks5HandSetup: number = 0;
-
-    trafficCount: number = 0;
 
     private isClientFirstPackage: boolean = true;
     private isTargetFirstPackage: boolean = true;
 
-    constructor(processConfig: ProxyProcessConfig) {
-        this.processConfig = processConfig;
+    constructor(private processConfig: ProxyProcessConfig) {
         this.clientSocket = processConfig.clientSocket;
 
         this.clientSocket.on("data", this.onClientSocketData.bind(this));
@@ -103,13 +107,8 @@ class ProxyProcess {
         this.targetSocket.connect(this.processConfig.targetPort, this.processConfig.targetHost, this.onTargetSocketConnect.bind(this));
     }
 
-    private onTargetSocketError(error: Error) {
-        this.clearConnect();
-        console.log("Target Socket Error:", error.message);
-    }
 
     private onTargetSocketConnect() {
-        console.log(`${this.clientIP}:${this.clientPort} -> proxy -> ${this.processConfig.targetHost}:${this.processConfig.targetPort}`);
         this.targetSocket.on("data", this.onTargetSocketData.bind(this));
         this.targetSocket.on("close", this.onTargetSocketClose.bind(this));
         this.targetSocket.write(new Buffer([0x05, 0x01, 0x00]));
@@ -121,10 +120,8 @@ class ProxyProcess {
                 console.log("不支持的Socks5协议");
                 return this.clearConnect();
             }
-            //console.log("Slice header:", this.dataBuffer.slice(0, 4 + this.dataBuffer[4] + 2 + 1));
             this.targetSocket.write(this.dataBuffer.slice(0, 4 + this.dataBuffer[4] + 2 + 1))
             this.dataBuffer = this.dataBuffer.slice(4 + this.dataBuffer[4] + 2 + 1);
-            //console.log("Slice body  :", this.dataBuffer);
             this.socks5HandSetup++;
             return;
         } else if (this.socks5HandSetup == 1) {
@@ -133,8 +130,11 @@ class ProxyProcess {
                 console.log(data);
                 return this.clearConnect();
             }
-            console.log("Socks5握手成功");
-            //console.log(this.dataBuffer.toString());
+            // console.log("Socks5握手成功");
+            // console.log(this.dataBuffer.toString());
+            if (this.processConfig.onConnect) {
+                this.processConfig.onConnect(this.targetAddress);
+            }
             this.targetSocket.write(this.dataBuffer);
             this.dataBuffer = null;
             this.isConnectTarget = true;
@@ -142,29 +142,31 @@ class ProxyProcess {
             return;
         }
 
+        if (this.isFirstTraffic) {
+            this.isFirstTraffic = false;
+        }
+
         // console.log("==Socks5==");
         // console.log(data.toString());
         // console.log("==========");
 
-        this.clientTraffic += data.length;
-        if (this.processConfig.reportTraffic) {
-            this.processConfig.reportTraffic(this.clientTraffic);
-            this.clientTraffic = 0;
+        if (this.processConfig.onUploadTraffic) {
+            this.processConfig.onUploadTraffic(data.length);
         }
 
-        data = this.encryptProcess.encryptData(data);
+        data = this.processConfig.encryptProcess.encryptData(data);
         this.clientSocket.write(data);
     }
 
-    private onTargetSocketClose() {
-        this.clearConnect();
-        console.log("Target Socket Close");
-    }
-
     private onClientSocketData(data: Buffer) {
-        data = this.encryptProcess.decryptData(data);
+        try {
+            data = this.processConfig.encryptProcess.decryptData(data);
+        } catch (error) {
+            this.onClientSocketError(error);
+            return;
+        }
         if (this.isClientFirstPackage) {
-            //data = data.slice(this.encryptProcess.getEncryptConfig().ivLengrh);
+            //data = data.slice(this.processConfig.encryptProcess.getEncryptConfig().ivLengrh);
 
             var address: string = "";
             var addressLength: number = 0;
@@ -199,11 +201,10 @@ class ProxyProcess {
                 address += data[14].toString() + ":";
                 address += data[15].toString() + ":";
                 address += data[16].toString();
-                return;
             }
-
-            console.log("address:", address + ":" + ((data[addressLength + 2] << 8) + data[addressLength + 3]));
-            //console.log("address length:", addressLength);
+            this.targetAddress = address + ":" + ((data[addressLength + 2] << 8) + data[addressLength + 3]);
+            this.targetAddress = this.targetAddress.trim();
+            // console.log("address:", this.targetAddress);
             data = Buffer.concat([new Buffer([0x05, 0x01, 0x00]), data]);
             this.isClientFirstPackage = false;
         }
@@ -213,11 +214,15 @@ class ProxyProcess {
         // console.log(data.toString());
         // console.log("==========");
 
-        this.clientTraffic += data.length;
-        if (this.processConfig.reportTraffic) {
-            this.processConfig.reportTraffic(this.clientTraffic);
-            this.clientTraffic = 0;
+        if (this.processConfig.onDownloadTraffic) {
+            this.processConfig.onDownloadTraffic(data.length);
         }
+
+        /*
+            判断是否已经连接至Socks5服务器  
+            -> 已连接则直接解密转发流量        
+            -> 未连接则暂时存放队列            
+        */
         if (this.isConnectTarget) {
             this.targetSocket.write(data);
         } else {
@@ -227,12 +232,24 @@ class ProxyProcess {
 
     private onClientSocketClose() {
         this.clearConnect();
-        console.log("Client Socket Close");
+    }
+
+    private onTargetSocketClose() {
+        this.clearConnect();
     }
 
     private onClientSocketError(error: Error) {
+        if (this.processConfig.onError) {
+            this.processConfig.onError(error);
+        }
         this.clearConnect();
-        console.log("Client Socket Error:", error.message);
+    }
+
+    private onTargetSocketError(error: Error) {
+        if (this.processConfig.onError) {
+            this.processConfig.onError(error);
+        }
+        this.clearConnect();
     }
 
     public clearConnect() {
@@ -240,14 +257,15 @@ class ProxyProcess {
             return;
         }
         this.isClear = true;
-        if (this.isConnectTarget) {
+        try {
             this.targetSocket.destroy();
-        }
-        this.clientSocket.destroy();
+        } catch (ex) { }
+        try {
+            this.clientSocket.destroy();
+        } catch (ex) { }
         this.dataBuffer = null;
-
-        if (this.processConfig.onDone) {
-            this.processConfig.onDone();
+        if (this.processConfig.onClose && this.isConnectTarget) {
+            this.processConfig.onClose();
         }
     }
 }
@@ -256,12 +274,17 @@ interface ProxyProcessConfig {
     targetHost: string;
     targetPort: number;
     clientSocket: net.Socket;
+    encryptProcess: ISSCryptoMethod;
 
-    onDone?: Function;
-    reportTraffic?: Function;
+    /* Event */
+    onConnect?: Function;
+    onClose?: Function;
+    onError?: Function;
+    onUploadTraffic?: Function;
+    onDownloadTraffic?: Function;
 }
 
 // forward port 1500 to 192.168.0.250:60704
-//var proxy = new Socks5ToShadowsocksProxyServer(4000, "192.168.0.250", 1084);
-var proxy = new Socks5ToShadowsocksProxyServer(4000, "127.0.0.1", 1080);
+var proxy = new Socks5ToShadowsocksProxyServer(4000, "192.168.0.250", 1084);
+//var proxy = new Socks5ToShadowsocksProxyServer(4000, "127.0.0.1", 1080);
 proxy.listen();
