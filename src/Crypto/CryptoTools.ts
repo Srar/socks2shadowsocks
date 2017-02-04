@@ -24,17 +24,11 @@ export default class CryptoTools {
         };
     }
 
-    public static generateRc4Md5EncryptProcess(kv: ICryptoKeyIV): crypto.Cipher {
-        var md5 = crypto.createHash("md5")
-        md5.update(kv.key)
-        md5.update(kv.iv)
-        return crypto.createCipheriv("rc4", md5.digest(), "");
-    }
-
-    public static generateRc4Md5DecryptProcess(kv: ICryptoKeyIV): crypto.Decipher {
-        var md5 = crypto.createHash("md5")
-        md5.update(kv.key)
-        md5.update(kv.iv)
-        return crypto.createDecipheriv("rc4", md5.digest(), "");
+    public static generateRc4Md5KeyByKV(kv: ICryptoKeyIV): Buffer {
+        var md5 = crypto.createHash("md5");
+        md5.update(kv.key);
+        md5.update(kv.iv);
+        var hash = md5.digest();
+        return hash
     }
 }

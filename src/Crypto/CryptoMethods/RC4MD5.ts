@@ -12,24 +12,41 @@ export default class RC4MD5 implements ISSCryptoMethod {
     private readonly ivLength: number = 16;
     private readonly cryptoName: string = "rc4-md5";
     private readonly cryptoKeyIV: ICryptoKeyIV;
-    private readonly cryptoProcess: CryptoProcess;
+
+    private isFirstEncryptData: boolean = true;
+    private isFirstDecryptData: boolean = true;
+
+    private encryptProcess: crypto.Cipher = null;
+    private decryptProcess: crypto.Decipher = null;
 
     constructor(private password?: string) {
         if (!password) {
             return;
         }
         this.cryptoKeyIV = CryptoTools.generateKeyIVByPassword(this.password, this.keyLength, this.ivLength);
-        this.cryptoProcess = new CryptoProcess("rc4", this.cryptoKeyIV.key, "")
     }
 
     encryptData(data: Buffer): Buffer {
-        return this.cryptoProcess.encryptData(data);
+          if (this.isFirstEncryptData) {
+            this.isFirstEncryptData = false;
+            var rc4Process: Buffer = CryptoTools.generateRc4Md5KeyByKV(this.cryptoKeyIV);
+            this.encryptProcess = crypto.createCipheriv("rc4", rc4Process , "");
+            return Buffer.concat([this.cryptoKeyIV.iv, this.encryptProcess.update(data)]);
+        }
+        return this.encryptProcess.update(data);
     }
 
     decryptData(data: Buffer): Buffer {
-        return this.cryptoProcess.decryptData(data);
+         if (this.isFirstDecryptData) {
+            this.isFirstDecryptData = false;
+            var decryptIV: Buffer = data.slice(0, this.ivLength);
+            var rc4Process: Buffer = CryptoTools.generateRc4Md5KeyByKV({ key: this.cryptoKeyIV.key, iv: decryptIV });
+            this.decryptProcess = crypto.createDecipheriv("rc4", rc4Process, "");
+            return this.decryptProcess.update(data.slice(this.ivLength));
+        }
+        return this.decryptProcess.update(data);
     }
-    
+
     getCryptoName(): string {
         return this.cryptoName;
     }
