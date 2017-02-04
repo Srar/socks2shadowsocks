@@ -1,7 +1,8 @@
 {
   "name": "socks5-to-shadowsocks-ts",
   "scripts": {
-    "build": "./node_modules/.bin/tsc tcp-proxy.ts"
+    "build": "./node_modules/.bin/tsc --outDir ./build --rootDir ./src",
+    "live": "./node_modules/.bin/tsc --outDir ./build --rootDir ./src -w "
   },
   "dependencies": {
     "@types/node": "^7.0.1",

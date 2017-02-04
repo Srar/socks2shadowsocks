@@ -1,0 +1,38 @@
+import * as crypto from "crypto";
+
+import { ISSCryptoMethod } from "../ISSCryptoMethod";
+import { ICryptoKeyIV } from "../ICryptoKeyIV";
+
+import CryptoTools from "../CryptoTools";
+import CryptoProcess from "../CryptoProcess";
+
+export default class AES192CFB implements ISSCryptoMethod {
+
+    private readonly keyLength: number = 24;
+    private readonly ivLength: number = 16;
+    private readonly cryptoName: string = "aes-192-cfb";
+    private readonly cryptoKeyIV: ICryptoKeyIV;
+    private readonly cryptoProcess: CryptoProcess;
+
+    constructor(private password?: string) {
+        if (!password) {
+            return;
+        }
+        this.cryptoKeyIV = CryptoTools.generateKeyIVByPassword(this.password, this.keyLength, this.ivLength);
+        this.cryptoProcess = new CryptoProcess(this.cryptoName, this.cryptoKeyIV.key, this.cryptoKeyIV.iv)
+    }
+
+    encryptData(data: Buffer): Buffer {
+        return this.cryptoProcess.encryptData(data);
+    }
+
+    decryptData(data: Buffer): Buffer {
+        return this.cryptoProcess.decryptData(data);
+    }
+
+    getCryptoName(): string {
+        return this.cryptoName;
+    }
+}
+
+
