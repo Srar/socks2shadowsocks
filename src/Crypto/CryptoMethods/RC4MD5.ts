@@ -4,7 +4,6 @@ import { ISSCryptoMethod } from "../ISSCryptoMethod";
 import { ICryptoKeyIV } from "../ICryptoKeyIV";
 
 import CryptoTools from "../CryptoTools";
-import CryptoProcess from "../CryptoProcess";
 
 export default class RC4MD5 implements ISSCryptoMethod {
 

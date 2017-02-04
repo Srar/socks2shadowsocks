@@ -1,6 +1,6 @@
 import * as crypto from "crypto";
 
-export default class CryptoProcess {
+export default class AESCryptoProcess {
 
     private isFirstEncryptData: boolean = true;
     private isFirstDecryptData: boolean = true;
