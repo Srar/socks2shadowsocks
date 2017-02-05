@@ -14,7 +14,7 @@ class Socks5ToShadowsocksProxyServer {
     readonly localPort: number;
     readonly targetHost: string;
     readonly targetPort: number;
-    
+
     upload: number = 0;
     download: number = 0;
 
@@ -49,18 +49,20 @@ class Socks5ToShadowsocksProxyServer {
             targetHost: this.targetHost,
             targetPort: this.targetPort,
             clientSocket: client,
-            encryptProcess: SSCrypto.createCryptoMethodObject("rc4-md5", "9VNNPzCkV4LcuGd"),
+            encryptProcess: SSCrypto.createCryptoMethodObject("aes-256-cfb", "9VNNPzCkV4LcuGd"),
+
+            agentMode: false,
 
             onConnect: (targetAddress: string) => {
-                //console.log("傻逼连接到:", targetAddress, "连接数:", ++this.count);
+                console.log("傻逼连接到:", targetAddress);
             },
 
             onClose: () => {
-                //console.log("傻逼断开了", "连接数:", --this.count);
+                console.log("傻逼断开了");
             },
 
             onError: (err: Error) => {
-                //console.log("傻逼爆炸了:", err.message);
+                console.log("傻逼爆炸了:", err.message);
             },
 
             onUploadTraffic: (traffic: number) => {
@@ -85,6 +87,8 @@ class ProxyProcess {
     readonly clientIP: string;
     readonly clientPort: number;
 
+    readonly isAgentMode: boolean = false;
+
     dataBuffer: Buffer = new Buffer([]);
     isConnectTarget: boolean = false;
     isClear: boolean = false;
@@ -97,9 +101,12 @@ class ProxyProcess {
     private isTargetFirstPackage: boolean = true;
 
     constructor(private processConfig: ProxyProcessConfig) {
+        if (processConfig.agentMode != undefined) {
+            this.isAgentMode = processConfig.agentMode;
+        }
         this.clientSocket = processConfig.clientSocket;
         this.clientSocket.setNoDelay(false);
-        this.clientSocket.on("data", this.onClientSocketData.bind(this));
+        this.clientSocket.on("data", this.isAgentMode ? this.onAgentModeClientSocketData.bind(this) : this.onClientSocketData.bind(this));
         this.clientSocket.on("close", this.onClientSocketClose.bind(this));
         this.clientSocket.on("error", this.onClientSocketError.bind(this));
 
@@ -107,16 +114,37 @@ class ProxyProcess {
         this.clientPort = this.clientSocket.address().port;
 
         this.targetSocket = new net.Socket();
-        this.targetSocket.setNoDelay(true);
+        this.targetSocket.setNoDelay(false);
         this.targetSocket.on("error", this.onTargetSocketError.bind(this));
         this.targetSocket.connect(this.processConfig.targetPort, this.processConfig.targetHost, this.onTargetSocketConnect.bind(this));
     }
 
-
     private onTargetSocketConnect() {
-        this.targetSocket.on("data", this.onTargetSocketData.bind(this));
+        this.targetSocket.on("data", this.isAgentMode ? this.onAgentModeTargetSocketData.bind(this) : this.onTargetSocketData.bind(this));
         this.targetSocket.on("close", this.onTargetSocketClose.bind(this));
-        this.targetSocket.write(new Buffer([0x05, 0x01, 0x00]));
+        if (!this.isAgentMode) {
+            this.targetSocket.write(new Buffer([0x05, 0x01, 0x00]));
+        } else {
+            this.targetSocket.write(this.dataBuffer);
+            this.isConnectTarget = true;
+            this.dataBuffer = null;
+        }
+    }
+
+    private onAgentModeClientSocketData(data: Buffer) {
+        if (this.isConnectTarget) {
+            this.targetSocket.write(data);
+        } else {
+            this.dataBuffer = Buffer.concat([this.dataBuffer, data]);
+        }
+    }
+
+    private onAgentModeTargetSocketData(data: Buffer) {
+        if (this.isTargetFirstPackage) {
+            this.isTargetFirstPackage = false;
+            console.log(this.processConfig.encryptProcess.decryptData(data).slice(0, 20));
+        }
+        this.clientSocket.write(data);
     }
 
     private onTargetSocketData(data: Buffer) {
@@ -140,7 +168,6 @@ class ProxyProcess {
             if (this.processConfig.onConnect) {
                 this.processConfig.onConnect(this.targetAddress);
             }
-            this.clientSocket.resume();
             this.targetSocket.write(this.dataBuffer);
             this.dataBuffer = null;
             this.isConnectTarget = true;
@@ -212,7 +239,6 @@ class ProxyProcess {
             this.targetAddress = address + ":" + ((data[addressLength + 2] << 8) + data[addressLength + 3]);
             this.targetAddress = this.targetAddress.trim();
             data = Buffer.concat([new Buffer([0x05, 0x01, 0x00]), data]);
-            this.clientSocket.pause();
             this.isClientFirstPackage = false;
         }
 
@@ -271,7 +297,7 @@ class ProxyProcess {
             this.clientSocket.destroy();
         } catch (ex) { }
         this.dataBuffer = null;
-        if (this.processConfig.onClose && this.isConnectTarget) {
+        if (this.processConfig.onClose && this.isConnectTarget && this.isAgentMode === false) {
             this.processConfig.onClose();
         }
     }
@@ -289,9 +315,13 @@ interface ProxyProcessConfig {
     onError?: Function;
     onUploadTraffic?: Function;
     onDownloadTraffic?: Function;
+
+    /* Config */
+    agentMode?: boolean;
 }
 
 // forward port 1500 to 192.168.0.250:60704
-var proxy = new Socks5ToShadowsocksProxyServer(4000, "192.168.0.250", 1084);
+//var proxy = new Socks5ToShadowsocksProxyServer(4000, "192.168.0.250", 60704);
+var proxy = new Socks5ToShadowsocksProxyServer(4000, "192.168.0.250", 22);
 //var proxy = new Socks5ToShadowsocksProxyServer(4000, "127.0.0.1", 1080);
 proxy.listen();
