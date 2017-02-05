@@ -1,84 +1,10 @@
-///<reference path="../node_modules/@types/node/index.d.ts"/>
-
 import * as net from "net"
 import * as crypto from "crypto";
 
 import SSCrypto from "./Crypto/SSCrypto";
 import { ISSCryptoMethod } from "./Crypto/ISSCryptoMethod";
 
-class Socks5ToShadowsocksProxyServer {
-
-    isListen: boolean = false;
-    proxyServer: net.Server = null;
-
-    readonly localPort: number;
-    readonly targetHost: string;
-    readonly targetPort: number;
-
-    upload: number = 0;
-    download: number = 0;
-
-    constructor(localPort: number, targetHost: string, targetPort: number) {
-        this.localPort = localPort;
-        this.targetHost = targetHost;
-        this.targetPort = targetPort;
-    }
-
-    listen() {
-        this.proxyServer = net.createServer(this.onClientConnect.bind(this));
-        this.proxyServer.listen(this.localPort, () => {
-            this.isListen = true;
-        });
-
-        setInterval(function () {
-            var uploadSpeed: number = this.upload / 1024;
-            var downloadSpeed: number = this.download / 1024;
-            this.upload   = 0;
-            this.download = 0;
-            console.log(`uploadSpeed: ${uploadSpeed.toFixed(0)}kb/s   downloadSpeed:${downloadSpeed.toFixed(0)}kb/s`);
-        }.bind(this), 1000);
-    }
-
-    close() {
-        this.proxyServer.close();
-    }
-
-    private onClientConnect(client: net.Socket) {
-
-        var process = new ProxyProcess({
-            targetHost: this.targetHost,
-            targetPort: this.targetPort,
-            clientSocket: client,
-            encryptProcess: SSCrypto.createCryptoMethodObject("aes-256-cfb", "9VNNPzCkV4LcuGd"),
-
-            agentMode: false,
-
-            onConnect: (targetAddress: string) => {
-                console.log("傻逼连接到:", targetAddress);
-            },
-
-            onClose: () => {
-                console.log("傻逼断开了");
-            },
-
-            onError: (err: Error) => {
-                console.log("傻逼爆炸了:", err.message);
-            },
-
-            onUploadTraffic: (traffic: number) => {
-                this.upload += traffic;
-            },
-
-            onDownloadTraffic: (traffic: number) => {
-                this.download += traffic;
-            },
-        });
-
-    }
-
-}
-
-class ProxyProcess {
+export default class ProxyProcess {
 
     readonly initTime: number = new Date().getTime();
 
@@ -87,7 +13,6 @@ class ProxyProcess {
     readonly clientIP: string;
     readonly clientPort: number;
 
-    readonly isAgentMode: boolean = false;
 
     dataBuffer: Buffer = new Buffer([]);
     isConnectTarget: boolean = false;
@@ -101,12 +26,9 @@ class ProxyProcess {
     private isTargetFirstPackage: boolean = true;
 
     constructor(private processConfig: ProxyProcessConfig) {
-        if (processConfig.agentMode != undefined) {
-            this.isAgentMode = processConfig.agentMode;
-        }
         this.clientSocket = processConfig.clientSocket;
         this.clientSocket.setNoDelay(false);
-        this.clientSocket.on("data", this.isAgentMode ? this.onAgentModeClientSocketData.bind(this) : this.onClientSocketData.bind(this));
+        this.clientSocket.on("data", this.onClientSocketData.bind(this));
         this.clientSocket.on("close", this.onClientSocketClose.bind(this));
         this.clientSocket.on("error", this.onClientSocketError.bind(this));
 
@@ -120,32 +42,11 @@ class ProxyProcess {
     }
 
     private onTargetSocketConnect() {
-        this.targetSocket.on("data", this.isAgentMode ? this.onAgentModeTargetSocketData.bind(this) : this.onTargetSocketData.bind(this));
+        this.targetSocket.on("data", this.onTargetSocketData.bind(this));
         this.targetSocket.on("close", this.onTargetSocketClose.bind(this));
-        if (!this.isAgentMode) {
-            this.targetSocket.write(new Buffer([0x05, 0x01, 0x00]));
-        } else {
-            this.targetSocket.write(this.dataBuffer);
-            this.isConnectTarget = true;
-            this.dataBuffer = null;
-        }
+        this.targetSocket.write(new Buffer([0x05, 0x01, 0x00]));
     }
 
-    private onAgentModeClientSocketData(data: Buffer) {
-        if (this.isConnectTarget) {
-            this.targetSocket.write(data);
-        } else {
-            this.dataBuffer = Buffer.concat([this.dataBuffer, data]);
-        }
-    }
-
-    private onAgentModeTargetSocketData(data: Buffer) {
-        if (this.isTargetFirstPackage) {
-            this.isTargetFirstPackage = false;
-            console.log(this.processConfig.encryptProcess.decryptData(data).slice(0, 20));
-        }
-        this.clientSocket.write(data);
-    }
 
     private onTargetSocketData(data: Buffer) {
         if (this.socks5HandSetup == 0) {
@@ -165,12 +66,12 @@ class ProxyProcess {
             }
             // console.log("Socks5握手成功");
             // console.log(this.dataBuffer.toString());
-            if (this.processConfig.onConnect) {
-                this.processConfig.onConnect(this.targetAddress);
-            }
             this.targetSocket.write(this.dataBuffer);
             this.dataBuffer = null;
             this.isConnectTarget = true;
+            if (this.processConfig.onConnect) {
+                this.processConfig.onConnect(this.targetAddress);
+            }
             this.socks5HandSetup++;
             return;
         }
@@ -297,13 +198,13 @@ class ProxyProcess {
             this.clientSocket.destroy();
         } catch (ex) { }
         this.dataBuffer = null;
-        if (this.processConfig.onClose && this.isConnectTarget && this.isAgentMode === false) {
+        if (this.processConfig.onClose && this.isConnectTarget) {
             this.processConfig.onClose();
         }
     }
 }
 
-interface ProxyProcessConfig {
+export interface ProxyProcessConfig {
     targetHost: string;
     targetPort: number;
     clientSocket: net.Socket;
@@ -315,13 +216,4 @@ interface ProxyProcessConfig {
     onError?: Function;
     onUploadTraffic?: Function;
     onDownloadTraffic?: Function;
-
-    /* Config */
-    agentMode?: boolean;
 }
-
-// forward port 1500 to 192.168.0.250:60704
-//var proxy = new Socks5ToShadowsocksProxyServer(4000, "192.168.0.250", 60704);
-var proxy = new Socks5ToShadowsocksProxyServer(4000, "192.168.0.250", 22);
-//var proxy = new Socks5ToShadowsocksProxyServer(4000, "127.0.0.1", 1080);
-proxy.listen();
