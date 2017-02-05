@@ -1,5 +1,5 @@
 # Socks5SSProxy
-单Socks5转换成多Shadowsocks代理. 适用于使用中转加速的用户或中转SS服务商.
+单Socks5转换成多用户(端口)Shadowsocks代理. 适用于使用中转加速的用户或中转SS服务商.
 
 ## 已支持的加密算法
 * rc4-md5
