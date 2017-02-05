@@ -6,7 +6,6 @@ import * as crypto from "crypto";
 import SSCrypto from "./Crypto/SSCrypto";
 import { ISSCryptoMethod } from "./Crypto/ISSCryptoMethod";
 
-
 class Socks5ToShadowsocksProxyServer {
 
     isListen: boolean = false;
@@ -26,8 +25,8 @@ class Socks5ToShadowsocksProxyServer {
     }
 
     listen() {
-        const server = net.createServer(this.onClientConnect.bind(this));
-        server.listen(this.localPort, () => {
+        this.proxyServer = net.createServer(this.onClientConnect.bind(this));
+        this.proxyServer.listen(this.localPort, () => {
             this.isListen = true;
         });
 
@@ -38,6 +37,10 @@ class Socks5ToShadowsocksProxyServer {
             this.download = 0;
             console.log(`uploadSpeed: ${uploadSpeed.toFixed(0)}kb/s   downloadSpeed:${downloadSpeed.toFixed(0)}kb/s`);
         }.bind(this), 1000);
+    }
+
+    close() {
+        this.proxyServer.close();
     }
 
     private onClientConnect(client: net.Socket) {
@@ -95,7 +98,7 @@ class ProxyProcess {
 
     constructor(private processConfig: ProxyProcessConfig) {
         this.clientSocket = processConfig.clientSocket;
-
+        this.clientSocket.setNoDelay(false);
         this.clientSocket.on("data", this.onClientSocketData.bind(this));
         this.clientSocket.on("close", this.onClientSocketClose.bind(this));
         this.clientSocket.on("error", this.onClientSocketError.bind(this));
@@ -137,6 +140,7 @@ class ProxyProcess {
             if (this.processConfig.onConnect) {
                 this.processConfig.onConnect(this.targetAddress);
             }
+            this.clientSocket.resume();
             this.targetSocket.write(this.dataBuffer);
             this.dataBuffer = null;
             this.isConnectTarget = true;
@@ -169,7 +173,6 @@ class ProxyProcess {
         }
         if (this.isClientFirstPackage) {
             //data = data.slice(this.processConfig.encryptProcess.getEncryptConfig().ivLengrh);
-
             var address: string = "";
             var addressLength: number = 0;
             var addressType: "Unknow" | "IPv4" | "IPv6" | "Domain" = "Unknow";
@@ -203,11 +206,13 @@ class ProxyProcess {
                 address += data[14].toString() + ":";
                 address += data[15].toString() + ":";
                 address += data[16].toString();
+            } else {
+                return this.onClientSocketError(new Error(`${this.clientIP}:${this.clientPort} 发送了未知的数据包.`))
             }
             this.targetAddress = address + ":" + ((data[addressLength + 2] << 8) + data[addressLength + 3]);
             this.targetAddress = this.targetAddress.trim();
-            // console.log("address:", this.targetAddress);
             data = Buffer.concat([new Buffer([0x05, 0x01, 0x00]), data]);
+            this.clientSocket.pause();
             this.isClientFirstPackage = false;
         }
 
