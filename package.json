@@ -2,7 +2,8 @@
   "name": "socks5-to-shadowsocks-ts",
   "scripts": {
     "build": "./node_modules/.bin/tsc --outDir ./build --rootDir ./src",
-    "live": "./node_modules/.bin/tsc --outDir ./build --rootDir ./src -w "
+    "live": "./node_modules/.bin/tsc --outDir ./build --rootDir ./src -w ",
+    "example": "./node_modules/.bin/ts-node ./example.ts"
   },
   "dependencies": {
     "@types/node": "^7.0.1",
