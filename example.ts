@@ -4,8 +4,6 @@ import Socks5SSProxy from "./src/Socks5SSProxy";
 import Socks5SSProxyProcess from "./src/Socks5SSProxyProcess";
 
 import SSCrypto from "./src/Crypto/SSCrypto";
-import { ISSCryptoMethod } from "./src/Crypto/ISSCryptoMethod";
-
 
 /* listen port 3389 of Shadowsocks server and traffic forward to port 22 of Socks5 server. */
 var proxy: Socks5SSProxy = new Socks5SSProxy(3389, "192.168.0.250", 22, "rc4-md5", "123456");
