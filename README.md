@@ -76,7 +76,11 @@ proxy.on("clientConnected", (p: Socks5SSProxyProcess) => {
     });
 
     p.on("socks5Data", (data: Buffer) => {
-        /* 记录Shadowsocks客户端下行流量 */
+        /*  记录Shadowsocks客户端下行流量
+            如果您想判断这个连接是不是HTTP连接, 您针对首包可以使用:
+            data.toString().indexOf("HTTP/1.1 ") != -1
+            这样简易的方式来判断.
+         */
         upload += data.length;
     });
 
