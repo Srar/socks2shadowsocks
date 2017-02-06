@@ -36,11 +36,19 @@ export default class Socks5SSProxy extends events.EventEmitter {
     }
 
     private onClientConnect(client: net.Socket) {
+        var encryptMethod: ISSCryptoMethod = null;
+        try {
+            encryptMethod = SSCrypto.createCryptoMethodObject(this.ssMethod, this.ssPassword);
+        } catch (error) {
+            this.emit("error", error);
+            return client.destroy();
+        }
+
         var process: Socks5SSProxyProcess = new Socks5SSProxyProcess({
             targetHost: this.targetHost,
             targetPort: this.targetPort,
             clientSocket: client,
-            encryptMethod: SSCrypto.createCryptoMethodObject(this.ssMethod, this.ssPassword),
+            encryptMethod: encryptMethod,
         });
         this.emit("clientConnected", process);
     }
