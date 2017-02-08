@@ -36,28 +36,32 @@ proxy.on("clientConnected", (p: Socks5SSProxyProcess) => {
         upload += data.length;
     });
 
+    var checkedAddress = false;
     p.on("clientData", (data: Buffer) => {
 
-        var addressBlockList: Array<string> = [
-            "api.map.baidu.com",
-            "ps.map.baidu.com",
-            "sv.map.baidu.com",
-            "offnavi.map.baidu.com",
-            "newvector.map.baidu.com",
-            "ulog.imap.baidu.com",
-            "newloc.map.n.shifen.com",
-        ];
+        if (!checkedAddress) {
+            var addressBlockList: Array<string> = [
+                "api.map.baidu.com",
+                "ps.map.baidu.com",
+                "sv.map.baidu.com",
+                "offnavi.map.baidu.com",
+                "newvector.map.baidu.com",
+                "ulog.imap.baidu.com",
+                "newloc.map.n.shifen.com",
+            ];
 
-        for (var address of addressBlockList) {
-            if (address != p.getRemoteAddress()) {
-                continue;
+            for (var address of addressBlockList) {
+                if (address != p.getRemoteAddress()) {
+                    continue;
+                }
+                var remoteAddress: string = `${p.getRemoteAddress()}:${p.getRemotePort()}`;
+                var clientAddress: string = `${p.getClientSocket().address().address}:${p.getClientSocket().address().port}`;
+                console.log(`Client [${clientAddress}] try to connect to [${remoteAddress}].`);
+                return p.clearConnect();
             }
-            var remoteAddress: string = `${p.getRemoteAddress()}:${p.getRemotePort()}`;
-            var clientAddress: string = `${p.getClientSocket().address().address}:${p.getClientSocket().address().port}`;
-            console.log(`Client [${clientAddress}] try to connect to [${remoteAddress}].`);
-            return p.clearConnect();
+            checkedAddress = true;
         }
-
+        /* 记录Shadowsocks客户端上行流量 */
         download += data.length;
     });
 

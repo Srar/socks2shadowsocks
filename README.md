@@ -104,32 +104,33 @@ proxy.on("clientConnected", (p: Socks5SSProxyProcess) => {
 
 * 屏蔽特定域名或IP
   ```typescript
+    var checkedAddress = false;
     p.on("clientData", (data: Buffer) => {
 
-        var addressBlockList: Array<string> = [
-            "api.map.baidu.com",
-            "ps.map.baidu.com",
-            "sv.map.baidu.com",
-            "offnavi.map.baidu.com",
-            "newvector.map.baidu.com",
-            "ulog.imap.baidu.com",
-            "newloc.map.n.shifen.com",
-            "1.1.1.1";
-        ];
+        /* 避免多次判断造成性能下降 */
+        if (!checkedAddress) {
+            var addressBlockList: Array<string> = [
+                "api.map.baidu.com",
+                "ps.map.baidu.com",
+                "sv.map.baidu.com",
+                "offnavi.map.baidu.com",
+                "newvector.map.baidu.com",
+                "ulog.imap.baidu.com",
+                "newloc.map.n.shifen.com",
+            ];
 
-        for (var address of addressBlockList) {
-            if (address != p.getRemoteAddress()) {
-                continue;
+            for (var address of addressBlockList) {
+                if (address != p.getRemoteAddress()) {
+                    continue;
+                }
+                var remoteAddress: string = `${p.getRemoteAddress()}:${p.getRemotePort()}`;
+                var clientAddress: string = `${p.getClientSocket().address().address}:${p.getClientSocket().address().port}`;
+                console.log(`Client [${clientAddress}] try to connect to [${remoteAddress}].`);
+                return p.clearConnect();
             }
-            var remoteAddress: string = `${p.getRemoteAddress()}:${p.getRemotePort()}`;
-            var clientAddress: string = `${p.getClientSocket().address().address}:${p.getClientSocket().address().port}`;
-            console.log(`Client [${clientAddress}] try to connect to [${remoteAddress}].`);
-            /* 请调用process内clearConnect方法完成断开连接操作. */
-            return p.clearConnect();
+            checkedAddress = true;
         }
-
         /* 记录Shadowsocks客户端上行流量 */
         download += data.length;
-
     });
   ```
