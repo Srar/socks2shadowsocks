@@ -85,6 +85,11 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
 
         this.emit("socks5Data", data);
 
+        // 判断是否在事件中把Socket关闭
+        if(this.isClear) {
+            return;
+        }
+
         data = this.processConfig.encryptMethod.encryptData(data);
         this.clientSocket.write(data);
     }
@@ -146,6 +151,11 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
 
         this.emit("clientData", data);
 
+        // 判断是否在事件中把Socket关闭
+        if(this.isClear) {
+            return;
+        }
+        
         /*
             判断是否已经连接至Socks5服务器  
             -> 已连接则直接解密转发流量        
