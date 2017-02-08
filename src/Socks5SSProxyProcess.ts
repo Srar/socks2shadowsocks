@@ -108,7 +108,7 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
             if (data[0] == 0x03) {
                 addressType = "Domain";
                 addressLength = data[1];
-                address = data.slice(1, addressLength + 2).toString();
+                address = data.slice(2, addressLength + 2).toString();
             } else if (data[0] == 0x01) {
                 addressType = "IPv4";
                 addressLength = 4;
@@ -138,9 +138,8 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
             } else {
                 return this.onClientSocketError(new Error(`${this.clientSocket.address().address}:${this.clientSocket.address().port} 发送了未知的数据包.`))
             }
-            this.remoteAddress = address;
+            this.remoteAddress = address.trim();
             this.remotePort = ((data[addressLength + 2] << 8) + data[addressLength + 3]);
-            this.remoteAddress = this.remoteAddress.trim();
             data = Buffer.concat([new Buffer([0x05, 0x01, 0x00]), data]);
             this.isClientFirstPackage = false;
         }
