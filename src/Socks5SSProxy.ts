@@ -51,5 +51,10 @@ export default class Socks5SSProxy extends events.EventEmitter {
             encryptMethod: encryptMethod,
         });
         this.emit("clientConnected", process);
+        this.processes.push(process);
+        process.on("close", function () {
+            var index = this.processes.indexOf(process);
+            if (index > -1) this.processes.splice(index, 1);
+        }.bind(this));
     }
 }
