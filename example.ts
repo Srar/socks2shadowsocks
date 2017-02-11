@@ -55,7 +55,7 @@ proxy.on("clientConnected", (p: Socks5SSProxyProcess) => {
                     continue;
                 }
                 var remoteAddress: string = `${p.getRemoteAddress()}:${p.getRemotePort()}`;
-                var clientAddress: string = `${p.getClientSocket().address().address}:${p.getClientSocket().address().port}`;
+                var clientAddress: string = `${p.getClientSocket().remoteAddress}:${p.getClientSocket().remotePort}`;
                 console.log(`Client [${clientAddress}] try to connect to [${remoteAddress}].`);
                 return p.clearConnect();
             }
