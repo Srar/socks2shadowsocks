@@ -37,7 +37,6 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
         this.targetSocket = new net.Socket();
         this.targetSocket.setNoDelay(false);
         this.targetSocket.on("error", this.onTargetSocketError.bind(this));
-        this.targetSocket.connect(this.processConfig.targetPort, this.processConfig.targetHost, this.onTargetSocketConnect.bind(this));
     }
 
     private onTargetSocketConnect() {
@@ -142,6 +141,7 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
             this.remotePort = ((data[addressLength + 2] << 8) + data[addressLength + 3]);
             data = Buffer.concat([new Buffer([0x05, 0x01, 0x00]), data]);
             this.isClientFirstPackage = false;
+              this.targetSocket.connect(this.processConfig.targetPort, this.processConfig.targetHost, this.onTargetSocketConnect.bind(this));
         }
 
         // console.log("==iPhone==");
