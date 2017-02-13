@@ -29,13 +29,13 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
     constructor(private processConfig: Socks5SSProxyProcessConfig) {
         super();
         this.clientSocket = processConfig.clientSocket;
-        this.clientSocket.setNoDelay(false);
+        this.clientSocket.setNoDelay(true);
         this.clientSocket.on("data", this.onClientSocketData.bind(this));
         this.clientSocket.on("close", this.onClientSocketClose.bind(this));
         this.clientSocket.on("error", this.onClientSocketError.bind(this));
 
         this.targetSocket = new net.Socket();
-        this.targetSocket.setNoDelay(false);
+        this.targetSocket.setNoDelay(true);
         this.targetSocket.on("error", this.onTargetSocketError.bind(this));
     }
 
@@ -47,27 +47,32 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
 
 
     private onTargetSocketData(data: Buffer) {
-        if (this.socks5HandSetup == 0) {
-            if (data.length != 2 && data[0] != 0x05 && data[0] != 0x00) {
-                console.log("不支持的Socks5协议");
-                return this.clearConnect();
+        try {
+            if (this.socks5HandSetup == 0) {
+                if (data.length != 2 && data[0] != 0x05 && data[0] != 0x00) {
+                    console.log("不支持的Socks5协议");
+                    return this.clearConnect();
+                }
+                this.targetSocket.write(this.dataBuffer.slice(0, 4 + this.dataBuffer[4] + 2 + 1))
+                this.dataBuffer = this.dataBuffer.slice(4 + this.dataBuffer[4] + 2 + 1);
+                this.socks5HandSetup++;
+                return;
+            } else if (this.socks5HandSetup == 1) {
+                if (data[1] != 0x00) {
+                    return this.onTargetSocketError(new Error("Socks5握手失败 数据包:" + JSON.stringify(data)));
+                }
+                // console.log("Socks5握手成功");
+                // console.log(this.dataBuffer.toString());
+                this.targetSocket.write(this.dataBuffer);
+                this.dataBuffer = null;
+                this.isConnectTarget = true;
+                this.emit("socks5Connected");
+                this.socks5HandSetup++;
+                return;
             }
-            this.targetSocket.write(this.dataBuffer.slice(0, 4 + this.dataBuffer[4] + 2 + 1))
-            this.dataBuffer = this.dataBuffer.slice(4 + this.dataBuffer[4] + 2 + 1);
-            this.socks5HandSetup++;
-            return;
-        } else if (this.socks5HandSetup == 1) {
-            if (data[1] != 0x00) {
-                return this.onTargetSocketError(new Error("Socks5握手失败 数据包:" + JSON.stringify(data)));
-            }
-            // console.log("Socks5握手成功");
-            // console.log(this.dataBuffer.toString());
-            this.targetSocket.write(this.dataBuffer);
-            this.dataBuffer = null;
-            this.isConnectTarget = true;
-            this.emit("socks5Connected");
-            this.socks5HandSetup++;
-            return;
+        } catch (error) {
+            console.error("Socks5握手失败", error);
+            return this.clearConnect();
         }
 
         if (this.isFirstTraffic) {
@@ -85,7 +90,7 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
         this.emit("socks5Data", data);
 
         // 判断是否在事件中把Socket关闭
-        if(this.isClear) {
+        if (this.isClear) {
             return;
         }
 
@@ -96,53 +101,61 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
     private onClientSocketData(data: Buffer) {
         try {
             data = this.processConfig.encryptMethod.decryptData(data);
+            if (this.isClientFirstPackage) {
+                var address: string = "";
+                var addressLength: number = 0;
+                var addressType: "Unknow" | "IPv4" | "IPv6" | "Domain" = "Unknow";
+                if (data[0] == 0x03) {
+                    addressType = "Domain";
+                    addressLength = data[1];
+                    address = data.slice(2, addressLength + 2).toString();
+                } else if (data[0] == 0x01) {
+                    addressType = "IPv4";
+                    addressLength = 4;
+                    address += data[1].toString() + ".";
+                    address += data[2].toString() + ".";
+                    address += data[3].toString() + ".";
+                    address += data[4].toString();
+                } else if (data[0] == 0x04) {
+                    addressType = "IPv6";
+                    addressLength = 16
+                    address += data[1].toString() + ":";
+                    address += data[2].toString() + ":";
+                    address += data[3].toString() + ":";
+                    address += data[4].toString() + ":";
+                    address += data[5].toString() + ":";
+                    address += data[6].toString() + ":";
+                    address += data[7].toString() + ":";
+                    address += data[8].toString() + ":";
+                    address += data[9].toString() + ":";
+                    address += data[10].toString() + ":";
+                    address += data[11].toString() + ":";
+                    address += data[12].toString() + ":";
+                    address += data[13].toString() + ":";
+                    address += data[14].toString() + ":";
+                    address += data[15].toString() + ":";
+                    address += data[16].toString();
+                } else {
+                    this.clientSocket.removeAllListeners();
+                    setTimeout(function () {
+                        this.onClientSocketError(new Error(`发送了未知地址类型数据包.`));
+                    }.bind(this), 15000); // 15秒
+                    return;
+                }
+                this.remoteAddress = address.trim();
+                this.remotePort = ((data[addressLength + 2] << 8) + data[addressLength + 3]);
+                if (isNaN(this.remotePort)) {
+                    return this.onClientSocketError(new Error(`发送了未知端口数据包.`));
+                }
+                data = Buffer.concat([new Buffer([0x05, 0x01, 0x00]), data]);
+                this.isClientFirstPackage = false;
+                this.targetSocket.connect(this.processConfig.targetPort, this.processConfig.targetHost, this.onTargetSocketConnect.bind(this));
+            }
         } catch (error) {
             this.onClientSocketError(error);
             return;
         }
-        if (this.isClientFirstPackage) {
-            var address: string = "";
-            var addressLength: number = 0;
-            var addressType: "Unknow" | "IPv4" | "IPv6" | "Domain" = "Unknow";
-            if (data[0] == 0x03) {
-                addressType = "Domain";
-                addressLength = data[1];
-                address = data.slice(2, addressLength + 2).toString();
-            } else if (data[0] == 0x01) {
-                addressType = "IPv4";
-                addressLength = 4;
-                address += data[1].toString() + ".";
-                address += data[2].toString() + ".";
-                address += data[3].toString() + ".";
-                address += data[4].toString();
-            } else if (data[0] == 0x04) {
-                addressType = "IPv6";
-                addressLength = 16
-                address += data[1].toString() + ":";
-                address += data[2].toString() + ":";
-                address += data[3].toString() + ":";
-                address += data[4].toString() + ":";
-                address += data[5].toString() + ":";
-                address += data[6].toString() + ":";
-                address += data[7].toString() + ":";
-                address += data[8].toString() + ":";
-                address += data[9].toString() + ":";
-                address += data[10].toString() + ":";
-                address += data[11].toString() + ":";
-                address += data[12].toString() + ":";
-                address += data[13].toString() + ":";
-                address += data[14].toString() + ":";
-                address += data[15].toString() + ":";
-                address += data[16].toString();
-            } else {
-                return this.onClientSocketError(new Error(`${this.clientSocket.address().address}:${this.clientSocket.address().port} 发送了未知的数据包.`))
-            }
-            this.remoteAddress = address.trim();
-            this.remotePort = ((data[addressLength + 2] << 8) + data[addressLength + 3]);
-            data = Buffer.concat([new Buffer([0x05, 0x01, 0x00]), data]);
-            this.isClientFirstPackage = false;
-              this.targetSocket.connect(this.processConfig.targetPort, this.processConfig.targetHost, this.onTargetSocketConnect.bind(this));
-        }
+
 
         // console.log("==iPhone==");
         // console.log(data.toString());
@@ -151,10 +164,10 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
         this.emit("clientData", data);
 
         // 判断是否在事件中把Socket关闭
-        if(this.isClear) {
+        if (this.isClear) {
             return;
         }
-        
+
         /*
             判断是否已经连接至Socks5服务器  
             -> 已连接则直接解密转发流量        
