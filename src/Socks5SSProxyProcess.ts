@@ -143,7 +143,7 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
                     return;
                 }
                 this.remoteAddress = address.trim();
-                this.remotePort = ((data[addressLength + 2] << 8) + data[addressLength + 3]);
+                this.remotePort = ((data[addressLength + 1] << 8) + data[addressLength + 2]);
                 if (isNaN(this.remotePort)) {
                     return this.onClientSocketError(new Error(`发送了未知端口数据包.`));
                 }
