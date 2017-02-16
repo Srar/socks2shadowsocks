@@ -19,8 +19,9 @@ export default class AESCryptoProcess {
     encryptData(data: Buffer): Buffer {
         if (this.isFirstEncryptData) {
             this.isFirstEncryptData = false;
-            this.encryptProcess = crypto.createCipheriv(this.cryptoName, this.KEY, this.IV);
-            return Buffer.concat([this.IV, this.encryptProcess.update(data)]);
+            var randomIV = crypto.randomBytes(this.IV.length);
+            this.encryptProcess = crypto.createCipheriv(this.cryptoName, this.KEY, randomIV);
+            return Buffer.concat([randomIV, this.encryptProcess.update(data)]);
         }
         return this.encryptProcess.update(data);
     }

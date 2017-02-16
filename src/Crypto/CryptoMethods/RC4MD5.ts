@@ -28,6 +28,7 @@ export default class RC4MD5 implements ISSCryptoMethod {
     encryptData(data: Buffer): Buffer {
           if (this.isFirstEncryptData) {
             this.isFirstEncryptData = false;
+            this.cryptoKeyIV.iv = crypto.randomBytes(this.ivLength);
             var rc4Process: Buffer = CryptoTools.generateRc4Md5KeyByKV(this.cryptoKeyIV);
             this.encryptProcess = crypto.createCipheriv("rc4", rc4Process , "");
             return Buffer.concat([this.cryptoKeyIV.iv, this.encryptProcess.update(data)]);
