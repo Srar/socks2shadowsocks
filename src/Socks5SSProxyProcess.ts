@@ -20,6 +20,7 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
 
     private remoteAddress: string = "";
     private remotePort: number = 0;
+    private remoteAddressLength: number = 0;
 
     private socks5HandSetup: number = 0;
 
@@ -53,8 +54,8 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
                     console.log("不支持的Socks5协议");
                     return this.clearConnect();
                 }
-                this.targetSocket.write(this.dataBuffer.slice(0, 4 + this.dataBuffer[4] + 2 + 1))
-                this.dataBuffer = this.dataBuffer.slice(4 + this.dataBuffer[4] + 2 + 1);
+                this.targetSocket.write(this.dataBuffer.slice(0, 4 + this.remoteAddressLength + 2))
+                this.dataBuffer = this.dataBuffer.slice(4 + this.remoteAddressLength + 2);
                 this.socks5HandSetup++;
                 return;
             } else if (this.socks5HandSetup == 1) {
@@ -63,9 +64,9 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
                 }
                 // console.log("Socks5握手成功");
                 // console.log(this.dataBuffer.toString());
+                this.isConnectTarget = true;
                 this.targetSocket.write(this.dataBuffer);
                 this.dataBuffer = null;
-                this.isConnectTarget = true;
                 this.emit("socks5Connected");
                 this.socks5HandSetup++;
                 return;
@@ -102,48 +103,43 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
         try {
             data = this.processConfig.encryptMethod.decryptData(data);
             if (this.isClientFirstPackage) {
-                var address: string = "";
-                var addressLength: number = 0;
                 var addressType: "Unknow" | "IPv4" | "IPv6" | "Domain" = "Unknow";
                 if (data[0] == 0x03) {
                     addressType = "Domain";
-                    addressLength = data[1];
-                    address = data.slice(2, addressLength + 2).toString();
+                    this.remoteAddressLength = data[1] + 1;
+                    this.remoteAddress = data.slice(2, this.remoteAddressLength + 2).toString();
                 } else if (data[0] == 0x01) {
                     addressType = "IPv4";
-                    addressLength = 4;
-                    address += data[1].toString() + ".";
-                    address += data[2].toString() + ".";
-                    address += data[3].toString() + ".";
-                    address += data[4].toString();
+                    this.remoteAddressLength = 4;
+                    this.remoteAddress += data[1].toString() + ".";
+                    this.remoteAddress += data[2].toString() + ".";
+                    this.remoteAddress += data[3].toString() + ".";
+                    this.remoteAddress += data[4].toString();
                 } else if (data[0] == 0x04) {
                     addressType = "IPv6";
-                    addressLength = 16
-                    address += data[1].toString() + ":";
-                    address += data[2].toString() + ":";
-                    address += data[3].toString() + ":";
-                    address += data[4].toString() + ":";
-                    address += data[5].toString() + ":";
-                    address += data[6].toString() + ":";
-                    address += data[7].toString() + ":";
-                    address += data[8].toString() + ":";
-                    address += data[9].toString() + ":";
-                    address += data[10].toString() + ":";
-                    address += data[11].toString() + ":";
-                    address += data[12].toString() + ":";
-                    address += data[13].toString() + ":";
-                    address += data[14].toString() + ":";
-                    address += data[15].toString() + ":";
-                    address += data[16].toString();
+                    this.remoteAddressLength = 16
+                    this.remoteAddress += data[1].toString() + ":";
+                    this.remoteAddress += data[2].toString() + ":";
+                    this.remoteAddress += data[3].toString() + ":";
+                    this.remoteAddress += data[4].toString() + ":";
+                    this.remoteAddress += data[5].toString() + ":";
+                    this.remoteAddress += data[6].toString() + ":";
+                    this.remoteAddress += data[7].toString() + ":";
+                    this.remoteAddress += data[8].toString() + ":";
+                    this.remoteAddress += data[9].toString() + ":";
+                    this.remoteAddress += data[10].toString() + ":";
+                    this.remoteAddress += data[11].toString() + ":";
+                    this.remoteAddress += data[12].toString() + ":";
+                    this.remoteAddress += data[13].toString() + ":";
+                    this.remoteAddress += data[14].toString() + ":";
+                    this.remoteAddress += data[15].toString() + ":";
+                    this.remoteAddress += data[16].toString();
                 } else {
-                    this.clientSocket.removeAllListeners();
-                    setTimeout(function () {
-                        this.onClientSocketError(new Error(`发送了未知地址类型数据包.`));
-                    }.bind(this), 15000); // 15秒
+                    this.onClientSocketError(new Error(`发送了未知地址类型数据包.`));
                     return;
                 }
-                this.remoteAddress = address.trim();
-                this.remotePort = ((data[addressLength + 1] << 8) + data[addressLength + 2]);
+                this.remoteAddress = this.remoteAddress.trim();
+                this.remotePort = ((data[this.remoteAddressLength + 1] << 8) + data[this.remoteAddressLength + 2]);
                 if (isNaN(this.remotePort)) {
                     return this.onClientSocketError(new Error(`发送了未知端口数据包.`));
                 }
