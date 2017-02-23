@@ -107,7 +107,7 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
                 if (data[0] == 0x03) {
                     addressType = "Domain";
                     this.remoteAddressLength = data[1] + 1;
-                    this.remoteAddress = data.slice(2, this.remoteAddressLength + 2).toString();
+                    this.remoteAddress = data.slice(2, this.remoteAddressLength + 1).toString();
                 } else if (data[0] == 0x01) {
                     addressType = "IPv4";
                     this.remoteAddressLength = 4;
