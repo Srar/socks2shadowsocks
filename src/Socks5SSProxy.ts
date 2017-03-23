@@ -7,12 +7,12 @@ import * as events from "events";
 import SSCrypto from "./Crypto/SSCrypto";
 import { ISSCryptoMethod } from "./Crypto/ISSCryptoMethod";
 
-import Socks5SSProxyProcess, { Socks5SSProxyProcessConfig } from "./Socks5SSProxyProcess";
+import Socks5SSProxyTcpProcess, { Socks5SSProxyProcessConfig } from "./Socks5SSProxyTcpProcess";
 
 export default class Socks5SSProxy extends events.EventEmitter {
 
     private readonly proxyServer: net.Server = null;
-    private processes: Array<Socks5SSProxyProcess> = [];
+    private processes: Array<Socks5SSProxyTcpProcess> = [];
 
     constructor(
         private readonly localPort: number,
@@ -44,7 +44,7 @@ export default class Socks5SSProxy extends events.EventEmitter {
             return client.destroy();
         }
 
-        var process: Socks5SSProxyProcess = new Socks5SSProxyProcess({
+        var process: Socks5SSProxyTcpProcess = new Socks5SSProxyTcpProcess({
             targetHost: this.targetHost,
             targetPort: this.targetPort,
             clientSocket: client,

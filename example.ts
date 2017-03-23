@@ -1,13 +1,13 @@
 ///<reference path="./node_modules/@types/node/index.d.ts"/>
 
 import Socks5SSProxy from "./src/Socks5SSProxy";
-import Socks5SSProxyProcess from "./src/Socks5SSProxyProcess";
+import Socks5SSProxyTcpProcess from "./src/Socks5SSProxyTcpProcess";
 
 import SSCrypto from "./src/Crypto/SSCrypto";
 
 /* listen port 3389 of Shadowsocks server and traffic forward to port 22 of Socks5 server. */
-var proxy: Socks5SSProxy = new Socks5SSProxy(3389, "192.168.0.250", 22, "rc4-md5", "123456");
-var processes: Array<Socks5SSProxyProcess> = [];
+var proxy: Socks5SSProxy = new Socks5SSProxy(3389, "192.168.0.250", 9257, "rc4-md5", "123456");
+var processes: Array<Socks5SSProxyTcpProcess> = [];
 
 var upload: number = 0;
 var download: number = 0;
@@ -20,7 +20,7 @@ setInterval(function () {
     console.log(`uploadSpeed: ${uploadSpeed.toFixed(0)}kb/s   downloadSpeed:${downloadSpeed.toFixed(0)}kb/s`);
 }.bind(this), 1000);
 
-proxy.on("clientConnected", (p: Socks5SSProxyProcess) => {
+proxy.on("clientConnected", (p: Socks5SSProxyTcpProcess) => {
 
     p.on("socks5Connected", () => {
         processes.push(p);

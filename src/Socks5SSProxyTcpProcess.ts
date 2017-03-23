@@ -5,7 +5,9 @@ import * as events from "events";
 import SSCrypto from "./Crypto/SSCrypto";
 import { ISSCryptoMethod } from "./Crypto/ISSCryptoMethod";
 
-export default class Socks5SSProxyProcess extends events.EventEmitter {
+import Socks5SSProxyTools from "./Socks5SSProxyTools";
+
+export default class Socks5SSProxyTcpProcess extends events.EventEmitter {
 
     private readonly initTime: number = new Date().getTime();
     private firstTrafficTime: number = 0;
@@ -62,8 +64,6 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
                 if (data[1] != 0x00) {
                     return this.onTargetSocketError(new Error("Socks5握手失败 数据包:" + JSON.stringify(data)));
                 }
-                // console.log("Socks5握手成功");
-                // console.log(this.dataBuffer.toString());
                 this.isConnectTarget = true;
                 this.targetSocket.write(this.dataBuffer);
                 this.dataBuffer = null;
@@ -84,10 +84,6 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
             this.emit("firstTraffic", this.firstTrafficTime - this.initTime);
         }
 
-        // console.log("==Socks5==");
-        // console.log(data.toString());
-        // console.log("==========");
-
         this.emit("socks5Data", data);
 
         // 判断是否在事件中把Socket关闭
@@ -103,43 +99,14 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
         try {
             data = this.processConfig.encryptMethod.decryptData(data);
             if (this.isClientFirstPackage) {
-                var addressType: "Unknow" | "IPv4" | "IPv6" | "Domain" = "Unknow";
-                if (data[0] == 0x03) {
-                    addressType = "Domain";
-                    this.remoteAddressLength = data[1] + 1;
-                    this.remoteAddress = data.slice(2, this.remoteAddressLength + 1).toString();
-                } else if (data[0] == 0x01) {
-                    addressType = "IPv4";
-                    this.remoteAddressLength = 4;
-                    this.remoteAddress += data[1].toString() + ".";
-                    this.remoteAddress += data[2].toString() + ".";
-                    this.remoteAddress += data[3].toString() + ".";
-                    this.remoteAddress += data[4].toString();
-                } else if (data[0] == 0x04) {
-                    addressType = "IPv6";
-                    this.remoteAddressLength = 16
-                    this.remoteAddress += data[1].toString() + ":";
-                    this.remoteAddress += data[2].toString() + ":";
-                    this.remoteAddress += data[3].toString() + ":";
-                    this.remoteAddress += data[4].toString() + ":";
-                    this.remoteAddress += data[5].toString() + ":";
-                    this.remoteAddress += data[6].toString() + ":";
-                    this.remoteAddress += data[7].toString() + ":";
-                    this.remoteAddress += data[8].toString() + ":";
-                    this.remoteAddress += data[9].toString() + ":";
-                    this.remoteAddress += data[10].toString() + ":";
-                    this.remoteAddress += data[11].toString() + ":";
-                    this.remoteAddress += data[12].toString() + ":";
-                    this.remoteAddress += data[13].toString() + ":";
-                    this.remoteAddress += data[14].toString() + ":";
-                    this.remoteAddress += data[15].toString() + ":";
-                    this.remoteAddress += data[16].toString();
-                } else {
+                var address = Socks5SSProxyTools.getAddressTypeAndAddressWithBuffer(data);
+                if(address.addressType == "Unknow") {
                     this.onClientSocketError(new Error(`发送了未知地址类型数据包.`));
                     return;
                 }
-                this.remoteAddress = this.remoteAddress.trim();
-                this.remotePort = ((data[this.remoteAddressLength + 1] << 8) + data[this.remoteAddressLength + 2]);
+                this.remoteAddress = address.address.trim();
+                this.remoteAddressLength = address.addressLength;
+                this.remotePort = address.port;
                 if (isNaN(this.remotePort)) {
                     return this.onClientSocketError(new Error(`发送了未知端口数据包.`));
                 }
@@ -151,11 +118,6 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
             this.onClientSocketError(error);
             return;
         }
-
-
-        // console.log("==iPhone==");
-        // console.log(data.toString());
-        // console.log("==========");
 
         this.emit("clientData", data);
 

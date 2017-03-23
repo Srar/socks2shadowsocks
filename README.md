@@ -23,7 +23,7 @@ console.log(SSCrypto.getAllCryptoMethods());
 
 ```typescript
 import Socks5SSProxy from "./src/Socks5SSProxy";
-import Socks5SSProxyProcess from "./src/Socks5SSProxyProcess";
+import Socks5SSProxyTcpProcess from "./src/Socks5SSProxyTcpProcess";
 
 /* 
     Shadowsocks服务端监听3389端口, 并将流量处理转发至192.168.0.250:22 Socks5服务端端口.
@@ -48,9 +48,9 @@ proxy.close();
 
 当您实例化`Socks5SSProxy`并调用`listen`方法后, 如有新连接传入则会触发`clientConnected`事件.
 
-`clientConnected`事件会传给你一个`Socks5SSProxyProcess`实例.
+`clientConnected`事件会传给你一个`Socks5SSProxyTcpProcess`实例.
 
-`Socks5SSProxyProcess`为处理转发过程类您可以监听其事件来干一些破事.
+`Socks5SSProxyTcpProcess`为处理转发TCP过程类您可以监听其事件来干一些破事.
 
 事件列表:
 * `socks5Connected`: Socks5连接并握手成功.
@@ -63,7 +63,7 @@ proxy.close();
 使用:
 
 ```typescript
-proxy.on("clientConnected", (p: Socks5SSProxyProcess) => {
+proxy.on("clientConnected", (p: Socks5SSProxyTcpProcess) => {
 
     p.on("socks5Connected", () => {
         ...
