@@ -28,7 +28,7 @@ proxy.on("clientConnected", (p: Socks5SSProxyTcpProcess) => {
 
     p.on("firstTraffic", (time: number) => {
         var remoteAddress: string = `${p.getRemoteAddress()}:${p.getRemotePort()}`;
-        var clientAddress: string = `${p.getClientSocket().address().address}:${p.getClientSocket().address().port}`;
+        var clientAddress: string = `${p.getClientSocket().remoteAddress}:${p.getClientSocket().remotePort}`;
         console.log(`Client [${clientAddress}] connected to [${remoteAddress}]. Usage time: ${time}ms`);
     });
 
