@@ -1,9 +1,17 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
-        "target": "es6",
-        "noImplicitAny": false,
-        "sourceMap": false,
-        "experimentalDecorators": true
-    }
-}
+      "baseUrl": "./src/",
+      "outDir": "./build/",
+      "target": "es2015",
+      "lib": ["es2015"],
+      "module": "commonjs",
+      "moduleResolution": "node",
+      "experimentalDecorators":true,
+      "emitDecoratorMetadata": true,
+      "sourceMap": true,
+      "declaration": false
+    },
+    "exclude": [
+      "node_modules"
+    ]
+  }

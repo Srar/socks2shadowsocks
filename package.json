@@ -1,14 +1,14 @@
 {
-  "name": "socks5-to-shadowsocks-ts",
+  "name": "socks5shadowsocks",
   "scripts": {
     "build": "./node_modules/.bin/tsc --outDir ./build --rootDir ./src",
     "live": "./node_modules/.bin/tsc --outDir ./build --rootDir ./src -w ",
     "example": "./node_modules/.bin/ts-node ./example.ts"
   },
   "dependencies": {
-    "@types/node": "^7.0.1",
+    "@types/node": "^12.6.8",
     "simple-socks": "^0.2.5",
-    "ts-node": "^2.0.0",
-    "typescript": "^2.1.5"
+    "ts-node": "^8.3.0",
+    "typescript": "^3.5.3"
   }
 }
