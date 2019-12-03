@@ -31,13 +31,15 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
     constructor(private processConfig: Socks5SSProxyProcessConfig) {
         super();
         this.clientSocket = processConfig.clientSocket;
-        this.clientSocket.setNoDelay(false);
+        this.clientSocket.setNoDelay(true);
+        this.clientSocket.setKeepAlive(true);
         this.clientSocket.on("data", this.onClientSocketData.bind(this));
         this.clientSocket.on("close", this.onClientSocketClose.bind(this));
         this.clientSocket.on("error", this.onClientSocketError.bind(this));
 
         this.targetSocket = new net.Socket();
         this.targetSocket.setNoDelay(true);
+        this.targetSocket.setKeepAlive(true);
         this.targetSocket.on("error", this.onTargetSocketError.bind(this));
     }
 
@@ -46,7 +48,6 @@ export default class Socks5SSProxyProcess extends events.EventEmitter {
         this.targetSocket.on("close", this.onTargetSocketClose.bind(this));
         this.targetSocket.write(new Buffer([0x05, 0x01, 0x00]));
     }
-
 
     private onTargetSocketData(data: Buffer) {
         try {
