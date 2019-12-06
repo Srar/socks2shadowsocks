@@ -6,6 +6,7 @@
   },
   "dependencies": {
     "@types/node": "^8.10.59",
+    "optimist": "^0.6.1",
     "simple-socks": "^0.2.5",
     "ts-node": "^8.3.0",
     "typescript": "^3.7.3"

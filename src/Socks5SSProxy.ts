@@ -26,8 +26,8 @@ export default class Socks5SSProxy extends events.EventEmitter {
         this.proxyServer.on("error", (err) => this.emit("error", err));
     }
 
-    listen() {
-        this.proxyServer.listen(this.localPort);
+    listen(listeningListener?: Function) {
+        this.proxyServer.listen(this.localPort, listeningListener);
     }
 
     close() {

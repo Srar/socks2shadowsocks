@@ -1,8 +1,26 @@
 import Socks5SSProxy from "./Socks5SSProxy";
 import Socks5SSProxyTcpProcess from "./Socks5SSProxyTcpProcess";
 
-/* Socks5监听3389端口并将请求转换至192.168.0.250:9257Shadowsocks端口. */
-var proxy: Socks5SSProxy = new Socks5SSProxy(3389, "192.168.0.250", 9257, "rc4-md5", "123456");
+const optimistParser = require("optimist")
+    .default("localPort", 3389)
+    .default("localCipher", "rc4-md5")
+    .default("localPassword", "123456")
+    .default("socks5Addr", "127.0.0.1")
+    .default("socks5Port", 1080)
+
+    .describe("localPort", "本地Shadowsocks监听端口.")
+    .describe("localCipher", "本地Shadowsocks加密方式.")
+    .describe("localPassword", "本地Shadowsocks加密密码.")
+    .describe("socks5Addr", "Socks5服务端地址.")
+    .describe("socks5Port", "Socks5服务端端口.");
+const argv = optimistParser.argv;
+
+if (argv.help !== undefined) {
+    console.log(optimistParser.help());
+    process.exit(0)
+}
+
+var proxy: Socks5SSProxy = new Socks5SSProxy(argv.localPort, argv.socks5Addr, argv.socks5Port, argv.localCipher, argv.localPassword);
 var processes: Array<Socks5SSProxyTcpProcess> = [];
 
 proxy.on("clientConnected", (p: Socks5SSProxyTcpProcess) => {
@@ -14,7 +32,7 @@ proxy.on("clientConnected", (p: Socks5SSProxyTcpProcess) => {
     p.on("firstTraffic", (time: number) => {
         var remoteAddress: string = `${p.getRemoteAddress()}:${p.getRemotePort()}`;
         var clientAddress: string = `${p.getClientSocket().remoteAddress}:${p.getClientSocket().remotePort}`;
-        console.log(`Client [${clientAddress}] connected to [${remoteAddress}].`);
+        console.log(`[${clientAddress}] <-> [${remoteAddress}]`);
     });
 
     p.on("socks5Data", (data: Buffer) => {
@@ -61,4 +79,6 @@ proxy.on("error", (err: Error) => {
     console.error("代理服务器出现错误:", err);
 });
 
-proxy.listen();
+proxy.listen(() => {
+    console.log(`Socks5 listening at port ${argv.localPort}.`)
+});
