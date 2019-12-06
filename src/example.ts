@@ -1,5 +1,5 @@
-import Socks5SSProxy from "./src/Socks5SSProxy";
-import Socks5SSProxyTcpProcess from "./src/Socks5SSProxyTcpProcess";
+import Socks5SSProxy from "./Socks5SSProxy";
+import Socks5SSProxyTcpProcess from "./Socks5SSProxyTcpProcess";
 
 /* Socks5监听3389端口并将请求转换至192.168.0.250:9257Shadowsocks端口. */
 var proxy: Socks5SSProxy = new Socks5SSProxy(3389, "192.168.0.250", 9257, "rc4-md5", "123456");
